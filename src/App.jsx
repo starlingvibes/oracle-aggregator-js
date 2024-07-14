@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react';
 import './App.css';
-import {
-  PriceServiceConnection,
-  // PriceFeed,
-  // Price,
-} from '@pythnetwork/price-service-client';
+import { PriceServiceConnection } from '@pythnetwork/price-service-client';
 import {
   AppBar,
   Toolbar,
@@ -95,10 +91,10 @@ const darkTheme = createTheme({
 });
 
 function App() {
-  const [pythPrices, setPythPrices] = useState({ btc: 0, eth: 0 });
+  const [pythPrices, setPythPrices] = useState({ btc: 60000, eth: 3000 });
   const [chainlinkPrices, setChainlinkPrices] = useState({
-    btc: 0,
-    eth: 0,
+    btc: 60000,
+    eth: 3000,
   });
   const [priceHistory, setPriceHistory] = useState([]);
 
@@ -120,9 +116,7 @@ function App() {
       ];
 
       const currentPrices = await connection.getLatestPriceFeeds(priceIds);
-      console.log('Pyth price', currentPrices);
-      console.log('Inner', currentPrices[0]?.price.price);
-      // This was really a pain though
+
       const btcPriceM = currentPrices?.at(0)?.getPriceNoOlderThan(30);
       const ethPriceM = currentPrices?.at(1)?.getPriceNoOlderThan(30);
       const btcPriceN = Number(btcPriceM?.price);
@@ -138,7 +132,7 @@ function App() {
         if (price && typeof price === 'number') {
           return price * Math.pow(10, -8);
         }
-        return 0; // Return 0 if price is null, undefined, or doesn't have the expected structure
+        return 0;
       }
 
       // Fetch Chainlink data
@@ -165,23 +159,38 @@ function App() {
 
       // Update price history
       const now = Date.now();
-      setPriceHistory((prevHistory) => [
-        ...prevHistory.slice(-19),
-        {
+      const newBtcAverage = (pythPrices.btc + chainlinkPrices.btc) / 2;
+      const newEthAverage = (pythPrices.eth + chainlinkPrices.eth) / 2;
+
+      setPriceHistory((prevHistory) => {
+        const newDataPoint = {
           time: now,
-          BTC: (pythPrices.btc + chainlinkPrices.btc) / 2,
-          ETH: (pythPrices.eth + chainlinkPrices.eth) / 2,
-        },
-      ]);
+          BTC: newBtcAverage,
+          ETH: newEthAverage,
+        };
+
+        // Only update if there's new data
+        if (
+          prevHistory.length === 0 ||
+          newDataPoint.BTC !== prevHistory[prevHistory.length - 1].BTC ||
+          newDataPoint.ETH !== prevHistory[prevHistory.length - 1].ETH
+        ) {
+          return [...prevHistory.slice(-19), newDataPoint];
+        }
+        return prevHistory;
+      });
     }
-    console.log('Price history', priceHistory);
 
     fetchData();
-    const interval = setInterval(fetchData, 5000);
+    const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [chainlinkPrices]);
 
   const renderPriceChart = () => {
+    if (priceHistory.length === 0) {
+      return <Typography>Waiting for data...</Typography>;
+    }
+
     return (
       <ResponsiveContainer width='100%' height={400}>
         <LineChart data={priceHistory}>
@@ -202,6 +211,7 @@ function App() {
             dataKey='BTC'
             stroke='#f2a900'
             name='BTC/USD'
+            isAnimationActive={false}
           />
           <Line
             yAxisId='right'
@@ -209,6 +219,7 @@ function App() {
             dataKey='ETH'
             stroke='#3c3c3d'
             name='ETH/USD'
+            isAnimationActive={false}
           />
         </LineChart>
       </ResponsiveContainer>
