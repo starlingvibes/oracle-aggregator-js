@@ -18,6 +18,12 @@ Requirements:
 https://www.loom.com/share/c49360d5f8d848c79fb07dd51ec9dc3f
 ```
 
+# Live URL
+
+```
+https://oracle-aggregator-js.vercel.app/
+```
+
 # Install dependencies
 
 ```shell
