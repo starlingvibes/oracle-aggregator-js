@@ -115,10 +115,10 @@ function App() {
       ];
 
       const currentPrices = await connection.getLatestPriceFeeds(priceIds);
-      const btcPriceM = currentPrices?.at(0)?.getPriceNoOlderThan(30);
-      const ethPriceM = currentPrices?.at(1)?.getPriceNoOlderThan(30);
-      const btcPriceN = Number(btcPriceM?.price);
-      const ethPriceN = Number(ethPriceM?.price);
+      const btcPriceM = currentPrices[0].price.price;
+      const ethPriceM = currentPrices[1].price.price;
+      const btcPriceN = Number(btcPriceM);
+      const ethPriceN = Number(ethPriceM);
 
       function extractPriceValue(price) {
         if (price && typeof price === 'number') {
@@ -165,7 +165,7 @@ function App() {
     }
 
     fetchData();
-    const interval = setInterval(fetchData, 5000);
+    const interval = setInterval(fetchData, 2000);
     return () => clearInterval(interval);
   }, []);
 
