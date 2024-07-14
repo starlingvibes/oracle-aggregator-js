@@ -91,16 +91,15 @@ const darkTheme = createTheme({
 });
 
 function App() {
-  const [pythPrices, setPythPrices] = useState({ btc: 60000, eth: 3000 });
+  const [pythPrices, setPythPrices] = useState({ btc: 0, eth: 0 });
   const [chainlinkPrices, setChainlinkPrices] = useState({
-    btc: 60000,
-    eth: 3000,
+    btc: 0,
+    eth: 0,
   });
   const [priceHistory, setPriceHistory] = useState([]);
-
   useEffect(() => {
     async function fetchData() {
-      // use the new pyth oracle model
+      // Fetch data from Pyth
       const connection = new PriceServiceConnection(
         'https://hermes.pyth.network',
         {
@@ -116,17 +115,10 @@ function App() {
       ];
 
       const currentPrices = await connection.getLatestPriceFeeds(priceIds);
-
       const btcPriceM = currentPrices?.at(0)?.getPriceNoOlderThan(30);
       const ethPriceM = currentPrices?.at(1)?.getPriceNoOlderThan(30);
       const btcPriceN = Number(btcPriceM?.price);
       const ethPriceN = Number(ethPriceM?.price);
-      if (currentPrices) {
-        setPythPrices({
-          btc: extractPriceValue(btcPriceN),
-          eth: extractPriceValue(ethPriceN),
-        });
-      }
 
       function extractPriceValue(price) {
         if (price && typeof price === 'number') {
@@ -134,6 +126,11 @@ function App() {
         }
         return 0;
       }
+
+      const newPythPrices = {
+        btc: extractPriceValue(btcPriceN),
+        eth: extractPriceValue(ethPriceN),
+      };
 
       // Fetch Chainlink data
       const btcAddr = '0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43';
@@ -152,39 +149,46 @@ function App() {
         ethPriceFeed.methods.latestRoundData().call(),
       ]);
 
-      setChainlinkPrices({
-        btc: Number(btcData.answer) / 1e8, // Assuming 8 decimals for BTC
-        eth: Number(ethData.answer) / 1e8, // Assuming 8 decimals for ETH
-      });
+      const newChainlinkPrices = {
+        btc: Number(btcData.answer) / 1e8,
+        eth: Number(ethData.answer) / 1e8,
+      };
+
+      // Update states
+      setPythPrices(newPythPrices);
+      setChainlinkPrices(newChainlinkPrices);
 
       // Update price history
-      const now = Date.now();
-      const newBtcAverage = (pythPrices.btc + chainlinkPrices.btc) / 2;
-      const newEthAverage = (pythPrices.eth + chainlinkPrices.eth) / 2;
-
-      setPriceHistory((prevHistory) => {
-        const newDataPoint = {
-          time: now,
-          BTC: newBtcAverage,
-          ETH: newEthAverage,
-        };
-
-        // Only update if there's new data
-        if (
-          prevHistory.length === 0 ||
-          newDataPoint.BTC !== prevHistory[prevHistory.length - 1].BTC ||
-          newDataPoint.ETH !== prevHistory[prevHistory.length - 1].ETH
-        ) {
-          return [...prevHistory.slice(-19), newDataPoint];
-        }
-        return prevHistory;
-      });
+      const btcAverage = (newPythPrices.btc + newChainlinkPrices.btc) / 2;
+      const ethAverage = (newPythPrices.eth + newChainlinkPrices.eth) / 2;
+      updatePriceHistory(btcAverage, ethAverage);
     }
 
     fetchData();
-    const interval = setInterval(fetchData, 30000);
+    const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
-  }, [chainlinkPrices]);
+  }, []);
+
+  const updatePriceHistory = (newBtcPrice, newEthPrice) => {
+    const now = Date.now();
+    setPriceHistory((prevHistory) => {
+      const newDataPoint = {
+        time: now,
+        BTC: newBtcPrice,
+        ETH: newEthPrice,
+      };
+
+      // Only update if there's new data
+      if (
+        prevHistory.length === 0 ||
+        newDataPoint.BTC !== prevHistory[prevHistory.length - 1].BTC ||
+        newDataPoint.ETH !== prevHistory[prevHistory.length - 1].ETH
+      ) {
+        return [...prevHistory.slice(-19), newDataPoint];
+      }
+      return prevHistory;
+    });
+  };
 
   const renderPriceChart = () => {
     if (priceHistory.length === 0) {
